@@ -24,7 +24,19 @@ This is "htnbk" (hatena blog backup) - a Go tool for extracting articles from Ha
 
 ## Architecture
 
-This is a simple Go command-line tool with a single main.go file. The current implementation is minimal (prints "hello") and appears to be in early development phase for what will become a Hatena Blog backup utility.
+This is a simple Go command-line tool with a single main.go file. The tool uses Hatena Blog's AtomPub API to fetch blog entries and display them in a formatted list.
+
+### Features
+- Fetches blog entries from Hatena Blog using AtomPub API
+- Uses Basic authentication with API key
+- Displays entries in format: "連番 : 公開日 - タイトル"
+- Parses XML response and extracts entry metadata
+
+### Configuration
+- Requires `HATENA_API_KEY` environment variable
+- Currently configured for:
+  - Hatena ID: basyura
+  - Blog ID: blog.basyura.org
 
 ## Project Structure
 
