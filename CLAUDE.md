@@ -17,6 +17,7 @@ This is "htnbk" (hatena blog backup) - a Go tool for extracting articles from Ha
 - `go test ./...` - Run all tests
 - `go vet ./...` - Run Go's static analysis tool
 - `go fmt ./...` - Format all Go files
+- `go build` - Build to verify code compiles (ALWAYS run after changes)
 
 ### Dependencies
 - `go mod tidy` - Clean up module dependencies
