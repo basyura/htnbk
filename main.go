@@ -53,19 +53,15 @@ func main() {
 }
 
 func fetchAndSaveBlogEntries(hatenaID, blogID, apiKey string) error {
-	entries, err := fetchBlogEntries(hatenaID, blogID, apiKey)
+	allEntries, err := fetchAllBlogEntries(hatenaID, blogID, apiKey)
 	if err != nil {
 		return err
 	}
 
-	// 出力ディレクトリを作成
-	outputDir := "entries"
-	err = os.MkdirAll(outputDir, 0755)
-	if err != nil {
-		return fmt.Errorf("ディレクトリ作成エラー: %v", err)
-	}
+	fmt.Printf("総記事数: %d\n", len(allEntries))
+	fmt.Println(strings.Repeat("-", 50))
 
-	for i, entry := range entries {
+	for i, entry := range allEntries {
 		publishedTime, err := time.Parse(time.RFC3339, entry.Published)
 		if err != nil {
 			fmt.Printf("日付解析エラー: %v\n", err)
@@ -74,9 +70,20 @@ func fetchAndSaveBlogEntries(hatenaID, blogID, apiKey string) error {
 		fmt.Printf("%04d : %s - %s\n", i+1, publishedTime.Format("2006-01-02"), entry.Title)
 		fmt.Printf("     ID: %s\n", entry.ID)
 
-		// ファイル名を生成
-		fileName := generateFileName(entry.Published, entry.Title)
-		filePath := filepath.Join(outputDir, fileName)
+		// ファイルパスを生成（年/月/ファイル名）
+		filePath, err := generateFilePath(entry.Published, entry.Title)
+		if err != nil {
+			fmt.Printf("ファイルパス生成エラー: %v\n", err)
+			continue
+		}
+
+		// 必要なディレクトリを作成
+		dir := filepath.Dir(filePath)
+		err = os.MkdirAll(dir, 0755)
+		if err != nil {
+			fmt.Printf("ディレクトリ作成エラー: %v\n", err)
+			continue
+		}
 
 		// ファイルに保存
 		err = saveEntryToFile(filePath, &entry)
@@ -85,18 +92,39 @@ func fetchAndSaveBlogEntries(hatenaID, blogID, apiKey string) error {
 			continue
 		}
 
-		fmt.Printf("     保存: %s\n", fileName)
+		// 相対パスで表示
+		relPath, _ := filepath.Rel(".", filePath)
+		fmt.Printf("     保存: %s\n", relPath)
 	}
 
 	return nil
 }
 
-func fetchBlogEntries(hatenaID, blogID, apiKey string) ([]Entry, error) {
-	url := fmt.Sprintf("https://blog.hatena.ne.jp/%s/%s/atom/entry", hatenaID, blogID)
+func fetchAllBlogEntries(hatenaID, blogID, apiKey string) ([]Entry, error) {
+	var allEntries []Entry
+	nextURL := fmt.Sprintf("https://blog.hatena.ne.jp/%s/%s/atom/entry", hatenaID, blogID)
+	
+	for nextURL != "" {
+		fmt.Printf("取得中: %s\n", nextURL)
+		
+		entries, next, err := fetchBlogEntriesPage(hatenaID, apiKey, nextURL)
+		if err != nil {
+			return nil, err
+		}
+		
+		allEntries = append(allEntries, entries...)
+		nextURL = next
+		
+		fmt.Printf("  %d件取得（累計: %d件）\n", len(entries), len(allEntries))
+	}
+	
+	return allEntries, nil
+}
 
+func fetchBlogEntriesPage(hatenaID, apiKey, url string) ([]Entry, string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Basic認証のヘッダーを設定
@@ -106,33 +134,42 @@ func fetchBlogEntries(hatenaID, blogID, apiKey string) ([]Entry, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTPエラー: %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("HTTPエラー: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var feed Feed
 	err = xml.Unmarshal(body, &feed)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return feed.Entries, nil
+	// nextリンクを検索
+	var nextURL string
+	for _, link := range feed.Links {
+		if link.Rel == "next" {
+			nextURL = link.Href
+			break
+		}
+	}
+
+	return feed.Entries, nextURL, nil
 }
 
 
-func generateFileName(published, title string) string {
+func generateFilePath(published, title string) (string, error) {
 	publishedTime, err := time.Parse(time.RFC3339, published)
 	if err != nil {
-		publishedTime = time.Now()
+		return "", err
 	}
 
 	// タイトルをファイル名に適したフォーマットに変換
@@ -142,18 +179,13 @@ func generateFileName(published, title string) string {
 	for _, char := range invalidChars {
 		safeTitle = strings.ReplaceAll(safeTitle, char, "_")
 	}
-	// ファイル名の長さ制限（バイト数で制限）
-	for len(safeTitle) > 50 {
-		// 最後の文字を削除
-		runes := []rune(safeTitle)
-		if len(runes) > 0 {
-			safeTitle = string(runes[:len(runes)-1])
-		} else {
-			break
-		}
-	}
 
-	return fmt.Sprintf("%s_%s.md", publishedTime.Format("2006-01-02"), safeTitle)
+	// 年/月/日付_タイトル.md の形式
+	year := publishedTime.Format("2006")
+	month := publishedTime.Format("01")
+	fileName := fmt.Sprintf("%s_%s.md", publishedTime.Format("2006-01-02"), safeTitle)
+	
+	return filepath.Join("entries", year, month, fileName), nil
 }
 
 func saveEntryToFile(filePath string, entry *Entry) error {
