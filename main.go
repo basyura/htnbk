@@ -10,28 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"htnbk/internal/models"
 )
 
-type Feed struct {
-	XMLName xml.Name `xml:"feed"`
-	Title   string   `xml:"title"`
-	Links   []Link   `xml:"link"`
-	Entries []Entry  `xml:"entry"`
-}
-
-type Link struct {
-	Rel  string `xml:"rel,attr"`
-	Href string `xml:"href,attr"`
-}
-
-type Entry struct {
-	ID        string `xml:"id"`
-	Title     string `xml:"title"`
-	Published string `xml:"published"`
-	Updated   string `xml:"updated"`
-	Links     []Link `xml:"link"`
-	Content   string `xml:"content"`
-}
 
 
 func main() {
@@ -100,8 +82,8 @@ func fetchAndSaveBlogEntries(hatenaID, blogID, apiKey string) error {
 	return nil
 }
 
-func fetchAllBlogEntries(hatenaID, blogID, apiKey string) ([]Entry, error) {
-	var allEntries []Entry
+func fetchAllBlogEntries(hatenaID, blogID, apiKey string) ([]models.Entry, error) {
+	var allEntries []models.Entry
 	nextURL := fmt.Sprintf("https://blog.hatena.ne.jp/%s/%s/atom/entry", hatenaID, blogID)
 	
 	for nextURL != "" {
@@ -121,7 +103,7 @@ func fetchAllBlogEntries(hatenaID, blogID, apiKey string) ([]Entry, error) {
 	return allEntries, nil
 }
 
-func fetchBlogEntriesPage(hatenaID, apiKey, url string) ([]Entry, string, error) {
+func fetchBlogEntriesPage(hatenaID, apiKey, url string) ([]models.Entry, string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, "", err
@@ -147,7 +129,7 @@ func fetchBlogEntriesPage(hatenaID, apiKey, url string) ([]Entry, string, error)
 		return nil, "", err
 	}
 
-	var feed Feed
+	var feed models.Feed
 	err = xml.Unmarshal(body, &feed)
 	if err != nil {
 		return nil, "", err
@@ -188,7 +170,7 @@ func generateFilePath(published, title string) (string, error) {
 	return filepath.Join("entries", year, month, fileName), nil
 }
 
-func saveEntryToFile(filePath string, entry *Entry) error {
+func saveEntryToFile(filePath string, entry *models.Entry) error {
 	publishedTime, err := time.Parse(time.RFC3339, entry.Published)
 	if err != nil {
 		publishedTime = time.Now()
