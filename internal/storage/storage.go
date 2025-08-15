@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -54,33 +55,110 @@ updated: %s
 
 // GetLatestEntryDate はentriesフォルダから最新の記事日付を取得する
 func GetLatestEntryDate() (time.Time, error) {
-	var latestDate time.Time
-
 	entriesDir := "entries"
 	if _, err := os.Stat(entriesDir); os.IsNotExist(err) {
 		// entriesフォルダが存在しない場合は、最古の日付を返す
 		return time.Time{}, nil
 	}
 
-	err := filepath.Walk(entriesDir, func(path string, info os.FileInfo, err error) error {
+	// 年ディレクトリを取得して降順ソート
+	yearDirs, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// 年ディレクトリ名を収集
+	var years []string
+	for _, yearDir := range yearDirs {
+		if yearDir.IsDir() {
+			years = append(years, yearDir.Name())
+		}
+	}
+	if len(years) == 0 {
+		return time.Time{}, nil
+	}
+
+	// 降順ソート（新しい年から）
+	sort.Sort(sort.Reverse(sort.StringSlice(years)))
+
+	// 最新の年から順に検索
+	for _, year := range years {
+		latestInYear, err := getLatestDateInYear(filepath.Join(entriesDir, year))
 		if err != nil {
-			return err
+			continue // エラーがあっても次の年を試す
 		}
-
-		if !info.IsDir() && strings.HasSuffix(info.Name(), ".md") {
-			// ファイル名から日付を抽出 (YYYY-MM-DD_title.md形式)
-			fileName := info.Name()
-			if len(fileName) >= 10 {
-				dateStr := fileName[:10] // YYYY-MM-DD部分
-				if fileDate, err := time.Parse("2006-01-02", dateStr); err == nil {
-					if fileDate.After(latestDate) {
-						latestDate = fileDate
-					}
-				}
-			}
+		if !latestInYear.IsZero() {
+			return latestInYear, nil // 最初に見つかった年の最新日付を返す
 		}
-		return nil
-	})
+	}
 
-	return latestDate, err
+	return time.Time{}, nil
+}
+
+// getLatestDateInYear は指定された年ディレクトリ内の最新日付を取得
+func getLatestDateInYear(yearDir string) (time.Time, error) {
+	// 月ディレクトリを取得
+	monthDirs, err := os.ReadDir(yearDir)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// 月ディレクトリ名を収集
+	var months []string
+	for _, monthDir := range monthDirs {
+		if monthDir.IsDir() {
+			months = append(months, monthDir.Name())
+		}
+	}
+	if len(months) == 0 {
+		return time.Time{}, nil
+	}
+
+	// 降順ソート（新しい月から）
+	sort.Sort(sort.Reverse(sort.StringSlice(months)))
+
+	// 最新の月から順に検索
+	for _, month := range months {
+		latestInMonth, err := getLatestDateInMonth(filepath.Join(yearDir, month))
+		if err != nil {
+			continue // エラーがあっても次の月を試す
+		}
+		if !latestInMonth.IsZero() {
+			return latestInMonth, nil // 最初に見つかった月の最新日付を返す
+		}
+	}
+
+	return time.Time{}, nil
+}
+
+// getLatestDateInMonth は指定された月ディレクトリ内の最新日付を取得
+func getLatestDateInMonth(monthDir string) (time.Time, error) {
+	files, err := os.ReadDir(monthDir)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// ファイル名を収集（日付順でソートするため）
+	var fileNames []string
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".md") && len(file.Name()) >= 10 {
+			fileNames = append(fileNames, file.Name())
+		}
+	}
+	if len(fileNames) == 0 {
+		return time.Time{}, nil
+	}
+
+	// ファイル名を降順ソート（YYYY-MM-DDの部分で新しい日付から）
+	sort.Sort(sort.Reverse(sort.StringSlice(fileNames)))
+
+	// 最初のファイル（最新日付）の日付を解析して返す
+	fileName := fileNames[0]
+	dateStr := fileName[:10] // YYYY-MM-DD部分
+	fileDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return fileDate, nil
 }
