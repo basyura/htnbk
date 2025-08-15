@@ -17,15 +17,15 @@ import (
 
 
 func main() {
-	apiKey := os.Getenv("HATENA_API_KEY")
-	if apiKey == "" {
-		fmt.Println("HATENA_API_KEY環境変数が設定されていません")
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: htnbk <hatenaID> <blogID> <apiKey>")
+		fmt.Println("Example: htnbk basyura blog.basyura.org your_api_key")
 		os.Exit(1)
 	}
 
-	// はてなIDとブログIDを設定（後で引数から取得するように変更可能）
-	hatenaID := "basyura"
-	blogID := "blog.basyura.org"
+	hatenaID := os.Args[1]
+	blogID := os.Args[2]
+	apiKey := os.Args[3]
 
 	err := fetchAndSaveBlogEntries(hatenaID, blogID, apiKey)
 	if err != nil {
