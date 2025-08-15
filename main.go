@@ -25,6 +25,7 @@ type Link struct {
 }
 
 type Entry struct {
+	ID        string `xml:"id"`
 	Title     string `xml:"title"`
 	Published string `xml:"published"`
 	Updated   string `xml:"updated"`
@@ -32,13 +33,6 @@ type Entry struct {
 	Content   string `xml:"content"`
 }
 
-type DetailedEntry struct {
-	XMLName xml.Name `xml:"entry"`
-	Title   string   `xml:"title"`
-	Content string   `xml:"content"`
-	Published string `xml:"published"`
-	Updated   string `xml:"updated"`
-}
 
 func main() {
 	apiKey := os.Getenv("HATENA_API_KEY")
@@ -78,20 +72,14 @@ func fetchAndSaveBlogEntries(hatenaID, blogID, apiKey string) error {
 			continue
 		}
 		fmt.Printf("%04d : %s - %s\n", i+1, publishedTime.Format("2006-01-02"), entry.Title)
-
-		// 個別エントリーの詳細を取得
-		detailedEntry, err := fetchEntryDetail(hatenaID, blogID, apiKey, entry)
-		if err != nil {
-			fmt.Printf("エントリー取得エラー: %v\n", err)
-			continue
-		}
+		fmt.Printf("     ID: %s\n", entry.ID)
 
 		// ファイル名を生成
-		fileName := generateFileName(i+1, entry.Published, entry.Title)
+		fileName := generateFileName(entry.Published, entry.Title)
 		filePath := filepath.Join(outputDir, fileName)
 
 		// ファイルに保存
-		err = saveEntryToFile(filePath, detailedEntry)
+		err = saveEntryToFile(filePath, &entry)
 		if err != nil {
 			fmt.Printf("ファイル保存エラー: %v\n", err)
 			continue
@@ -140,53 +128,8 @@ func fetchBlogEntries(hatenaID, blogID, apiKey string) ([]Entry, error) {
 	return feed.Entries, nil
 }
 
-func fetchEntryDetail(hatenaID, blogID, apiKey string, entry Entry) (*DetailedEntry, error) {
-	var editLink string
-	for _, link := range entry.Links {
-		if link.Rel == "edit" {
-			editLink = link.Href
-			break
-		}
-	}
 
-	if editLink == "" {
-		return nil, fmt.Errorf("edit linkが見つかりません")
-	}
-
-	req, err := http.NewRequest("GET", editLink, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	auth := base64.StdEncoding.EncodeToString([]byte(hatenaID + ":" + apiKey))
-	req.Header.Set("Authorization", "Basic "+auth)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTPエラー: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var detailedEntry DetailedEntry
-	err = xml.Unmarshal(body, &detailedEntry)
-	if err != nil {
-		return nil, err
-	}
-
-	return &detailedEntry, nil
-}
-
-func generateFileName(index int, published, title string) string {
+func generateFileName(published, title string) string {
 	publishedTime, err := time.Parse(time.RFC3339, published)
 	if err != nil {
 		publishedTime = time.Now()
@@ -213,7 +156,7 @@ func generateFileName(index int, published, title string) string {
 	return fmt.Sprintf("%s_%s.md", publishedTime.Format("2006-01-02"), safeTitle)
 }
 
-func saveEntryToFile(filePath string, entry *DetailedEntry) error {
+func saveEntryToFile(filePath string, entry *Entry) error {
 	publishedTime, err := time.Parse(time.RFC3339, entry.Published)
 	if err != nil {
 		publishedTime = time.Now()

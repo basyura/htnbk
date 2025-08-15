@@ -39,6 +39,9 @@ This is a simple Go command-line tool with a single main.go file. The tool uses 
   - Hatena ID: basyura
   - Blog ID: blog.basyura.org
 
+### API Reference
+- Hatena Blog AtomPub API documentation: https://developer.hatena.ne.jp/ja/documents/blog/apis/atom/
+
 ## Project Structure
 
 - `main.go` - Main entry point
