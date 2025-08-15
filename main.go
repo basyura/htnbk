@@ -11,15 +11,15 @@ import (
 	"strings"
 	"time"
 
-	"htnbk/internal/models"
+	"htnblg-export/internal/models"
 )
 
 
 
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: htnbk <hatenaID> <blogID> <apiKey>")
-		fmt.Println("Example: htnbk basyura blog.basyura.org your_api_key")
+		fmt.Println("Usage: htnblg-export <hatenaID> <blogID> <apiKey>")
+		fmt.Println("Example: htnblg-export basyura blog.basyura.org your_api_key")
 		os.Exit(1)
 	}
 

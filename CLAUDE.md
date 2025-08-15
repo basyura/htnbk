@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is "htnbk" (hatena blog backup) - a Go tool for extracting articles from Hatena Blog and outputting each entry to separate files for backup purposes.
+This is "htnblg-export" (Hatena Blog Export) - a Go tool for extracting articles from Hatena Blog and outputting each entry to separate files for backup purposes.
 
 ## Development Commands
 
 ### Building and Running
 - `go run main.go` - Run the application directly
 - `go build` - Build the binary
-- `go build -o htnbk` - Build with specific binary name
+- `go build -o htnblg-export` - Build with specific binary name
 
 ### Testing and Quality
 - `go test ./...` - Run all tests
