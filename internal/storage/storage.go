@@ -41,14 +41,65 @@ func SaveEntryToFile(filePath string, entry *models.Entry) error {
 		publishedTime = time.Now()
 	}
 
+	// エントリーのURLを取得
+	var entryURL string
+	for _, link := range entry.Links {
+		if link.Rel == "alternate" {
+			entryURL = link.Href
+			break
+		}
+	}
+
+	// タグとカテゴリを取得
+	var tags []string
+	for _, category := range entry.Categories {
+		if category.Term != "" {
+			tags = append(tags, category.Term)
+		}
+	}
+
+	// ヘッダーを構築
 	content := fmt.Sprintf(`---
 title: %s
 published: %s
 updated: %s
----
+url: %s
+entry-id: %s`, entry.Title, publishedTime.Format("2006-01-02"), entry.Updated, entryURL, entry.ID)
 
-%s
-`, entry.Title, publishedTime.Format("2006-01-02"), entry.Updated, entry.Content)
+	// 作成者情報
+	if entry.Author.Name != "" {
+		content += fmt.Sprintf("\nauthor: %s", entry.Author.Name)
+	}
+
+	// 編集日時
+	if entry.Edited != "" {
+		content += fmt.Sprintf("\nedited: %s", entry.Edited)
+	}
+
+	// 下書き状態
+	if entry.Control.Draft == "yes" {
+		content += "\ndraft: true"
+	}
+
+	// プレビュー共有状態
+	if entry.Control.Preview == "yes" {
+		content += "\npreview: true"
+	}
+
+	// カスタムURL
+	if entry.CustomURL != "" {
+		content += fmt.Sprintf("\ncustom-url: %s", entry.CustomURL)
+	}
+
+	// タグがある場合は追加
+	if len(tags) > 0 {
+		content += "\ntags:\n"
+		for _, tag := range tags {
+			content += fmt.Sprintf("  - %s\n", tag)
+		}
+	}
+
+	content += "---\n\n" + entry.Content + "\n"
 
 	return os.WriteFile(filePath, []byte(content), 0644)
 }
